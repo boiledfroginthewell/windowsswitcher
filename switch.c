@@ -17,13 +17,13 @@ int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label) {
 	return 0;
 }
 
-void free(SWITCH_LIST list) {
+void freeSwitch(SWITCH_LIST list) {
 	SWITCH* remove;
 	SWITCH* next;
 
 	if (list == NULL || *list == NULL) return;
 	remove = *list;
-	while (remove != null) {
+	while (remove != NULL) {
 		next = remove->next;
 		free(remove);
 	}

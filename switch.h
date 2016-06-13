@@ -1,13 +1,13 @@
 
 #define LABELS "aoeui:,.py;qjkx"
 
-typedef SWITCH** SWITCH_LIST;
-typedef struct {
+typedef struct S_SWITCH{
 	HWND hwnd;
 	char label;
-	HWND* next;
+	struct S_SWITCH *next;
 } SWITCH;
+typedef SWITCH **SWITCH_LIST;
 
 
 int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label);
-void free(SWITCH_LIST start);
+void freeSwitch(SWITCH_LIST start);

@@ -20,7 +20,6 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 		windowText[i] = 0;
 	}
 	for (i = 0; i < sizeof(class); i++) class[i] = 0;
-
 	GetWindowText(hwnd , windowText, sizeof(windowText) - 10);
 	if (hwnd == NULL) return TRUE;
 	if (!IsWindowVisible(hwnd)) return TRUE;
@@ -29,11 +28,12 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 	GetClassName(hwnd, class, sizeof(class) - 1);
 	if (lstrcmp(class, TEXT("Progman")) == 0) return TRUE;
 	GetWindowRect(hwnd, lprect);
+	if (lprect == NULL) return TRUE;
 	// TODO: ex_edge or border
 	hwnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_WINDOWEDGE | WS_EX_TOOLWINDOW, TEXT("STATIC"), TEXT(windowText), 
 		WS_POPUP | WS_BORDER | WS_VISIBLE, lprect->left, lprect->top, 400, 30, mainWin, NULL, (HINSTANCE)lParam, NULL);
-	
-	newSwitch(switches, hwnd, 'a');
+	ShowWindow(hwnd, SW_SHOW);
+	//newSwitch(switches, hwnd, 'a');
 	return TRUE;
 }
 
@@ -72,12 +72,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCm
 	if (!RegisterClass(&class)) return -1;
 
 	mainWin = CreateWindow(TEXT("Switcher"), TEXT("rchsch\0"), 
-		WS_POPUP | WS_BORDER, 0, 0, 0, 0, NULL, NULL, hInstance, NULL);
+		WS_POPUP | WS_BORDER, 0, 0, 10, 100, NULL, NULL, hInstance, NULL);
 	if (mainWin == NULL) return -1;
 	
 	// TODO get positon and set
 	EnumWindows(EnumWindowsProc , (LPARAM)hInstance);
-
 	ShowWindow(mainWin, SW_SHOW);
 	//SetActiveWindow(mainWin);
 
