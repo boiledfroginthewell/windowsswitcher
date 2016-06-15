@@ -1,5 +1,4 @@
 
-#define LABELS "aoeui:,.py;qjkx"
 
 typedef struct S_SWITCH{
 	HWND hwnd;
@@ -11,3 +10,4 @@ typedef SWITCH **SWITCH_LIST;
 
 int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label);
 void freeSwitch(SWITCH_LIST start);
+SWITCH* findSwitch(SWITCH_LIST list, char label);

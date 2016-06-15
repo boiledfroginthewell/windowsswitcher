@@ -1,52 +1,76 @@
 #include<windows.h>
 #include<stdio.h>
+#include<ctype.h>
 
 #include "switch.h"
 
 #define MAX_TITLE 512
-
+#define LABELS "gfdsatrewqvcx12345hjkl;yuiopnm,.7890"
+#define LABEL_OFFSET 3
 
 int nSwitches = 0;
 HWND mainWin;
 SWITCH_LIST switches;
 
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
-	TCHAR windowText[512]; // TODO: LABEL
-	LPRECT lprect;
+	TCHAR windowText[512 + LABEL_OFFSET]; // TODO: LABEL
+	RECT rect;
 	TCHAR class[10];
+	char label;
 
 	int i;
 	for (i = 0; i < sizeof(windowText); i++) {
 		windowText[i] = 0;
 	}
 	for (i = 0; i < sizeof(class); i++) class[i] = 0;
-	GetWindowText(hwnd , windowText, sizeof(windowText) - 10);
+	GetWindowText(hwnd , windowText + LABEL_OFFSET, sizeof(windowText) - 10 - LABEL_OFFSET);
 	if (hwnd == NULL) return TRUE;
 	if (!IsWindowVisible(hwnd)) return TRUE;
-	if (GetWindow(hwnd, GW_OWNER) != NULL) return TRUE;
-	if (windowText[0] == TEXT('\0')) return TRUE;
+	//if (GetWindow(hwnd, GW_OWNER) != NULL) return TRUE;
+	if (windowText[LABEL_OFFSET] == TEXT('\0')) return TRUE;
 	GetClassName(hwnd, class, sizeof(class) - 1);
 	if (lstrcmp(class, TEXT("Progman")) == 0) return TRUE;
-	GetWindowRect(hwnd, lprect);
-	if (lprect == NULL) return TRUE;
+	if (nSwitches >= strlen(LABELS)) {
+		/* Too many windows to handle */
+		return TRUE;
+	}
+
+	/* Create switch */
+	label = LABELS[nSwitches++];
+	windowText[0] =toupper(label);
+	windowText[1] = ':';
+	windowText[2] = ' ';
+	GetWindowRect(hwnd, &rect);
+	
 	// TODO: ex_edge or border
 	hwnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_WINDOWEDGE | WS_EX_TOOLWINDOW, TEXT("STATIC"), TEXT(windowText), 
-		WS_POPUP | WS_BORDER | WS_VISIBLE, lprect->left, lprect->top, 400, 30, mainWin, NULL, (HINSTANCE)lParam, NULL);
+		WS_POPUP | WS_BORDER, rect.left, rect.top, 400, 30, mainWin, NULL, (HINSTANCE)lParam, NULL);
 	ShowWindow(hwnd, SW_SHOW);
-	//newSwitch(switches, hwnd, 'a');
+	newSwitch(switches, hwnd, label);
 	return TRUE;
 }
 
-
-//HWND buildWindow(LPCTSTR text) {
+void terminate() {
+	freeSwitch(switches);
+	PostQuitMessage(0);
+}
 
 /* Window Procedure for the main window. */
 LRESULT CALLBACK mainWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lparam) {
+	SWITCH* sw;
 	//printf("%d\n", msgCode);
 	switch(msgCode) {
 	case WM_CHAR:
+		if ((sw = findSwitch(switches, ((PTSTR) wparam)[0])) == NULL) {
+			terminate();
+			return 0;
+		}
+		//printf("%c\n", (PTSTR) wparam);
+		SetForegroundWindow(sw->hwnd);
+		terminate();
+		return 0;
 	case WM_DESTROY:
-		PostQuitMessage(0);
+		terminate();
 		return 0;
 	default:
 		return DefWindowProc(hwnd, msgCode, wparam, lparam);
