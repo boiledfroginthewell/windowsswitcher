@@ -8,6 +8,7 @@ typedef struct S_SWITCH{
 typedef SWITCH **SWITCH_LIST;
 
 
+SWITCH_LIST initSwitchList();
 int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label);
 void freeSwitch(SWITCH_LIST start);
 SWITCH* findSwitch(SWITCH_LIST list, char label);

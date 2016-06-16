@@ -1,7 +1,12 @@
 #include<windows.h>
 #include<stdlib.h>
+#include<stdio.h>
 
 #include "switch.h"
+
+SWITCH_LIST initSwitchList() {
+	return (SWITCH_LIST) calloc(1, sizeof(SWITCH*));
+}
 
 int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label) {
 	SWITCH* next;
@@ -9,11 +14,13 @@ int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label) {
 	if (tgt == NULL) return 1;
 	
 	if (*tgt == NULL) {
-		tgt = (SWITCH*)malloc(sizeof(SWITCH));
+		next = NULL;
+	} else {
+		next = *tgt;
+	}
 
-	next = (*tgt)->next;
 	*tgt = (SWITCH*)malloc(sizeof(SWITCH));
-	if (tgt == NULL) return -1;
+	if (*tgt == NULL) return -1;
 	(*tgt)->hwnd = hwnd;
 	(*tgt)->label = label;
 	(*tgt)->next = next;
@@ -21,10 +28,14 @@ int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label) {
 }
 
 SWITCH* findSwitch(SWITCH_LIST list, char label) {
+		printf("[%c]\n", label);fflush(stdout);
+	SWITCH* iter;
 	if (list == NULL || *list == NULL) return NULL;
+
+	iter = *list;
 	do {
-		if ((*list)->label == label) return *list;
-	} while ((*list)->next != NULL);
+		if (iter->label == label) return iter;
+	} while ((iter = iter->next) != NULL);
 	return NULL;
 }
 
@@ -34,10 +45,12 @@ void freeSwitch(SWITCH_LIST list) {
 	SWITCH* remove;
 	SWITCH* next;
 
-	if (list == NULL || *list == NULL) return;
+	if (list == NULL) return;
 	remove = *list;
 	while (remove != NULL) {
 		next = remove->next;
 		free(remove);
+		remove = next;
 	}
+	free(list);
 }

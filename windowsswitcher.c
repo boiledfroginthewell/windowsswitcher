@@ -58,15 +58,37 @@ void terminate() {
 /* Window Procedure for the main window. */
 LRESULT CALLBACK mainWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lparam) {
 	SWITCH* sw;
-	//printf("%d\n", msgCode);
 	switch(msgCode) {
 	case WM_CHAR:
-		if ((sw = findSwitch(switches, ((PTSTR) wparam)[0])) == NULL) {
+		if ((sw = findSwitch(switches, ((TCHAR) wparam))) == NULL) {
 			terminate();
 			return 0;
 		}
-		//printf("%c\n", (PTSTR) wparam);
+		Sleep(2000);
+		printf("iji\n");fflush(stdout);
+//		SystemParametersInfo(
+//		ShowWindow(sw->hwnd, SW_RESTORE);
+		ShowWindow(sw->hwnd, SW_SHOW);
+	SwitchToThisWindow(sw->hwnd, TRUE);
 		SetForegroundWindow(sw->hwnd);
+ BringWindowToTop(sw->hwnd);
+//		SetActiveWindow(sw->hwnd);
+//SetWindowPos(sw->hwnd,HWND_TOP,0,0,0,0,SWP_NOMOVE | SWP_NOSIZE);
+SetWindowPos(sw->hwnd,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE | SWP_NOSIZE);
+		//MessageBox(NULL , TEXT("Kitty on your lap"), TEXT("メッセージボックス") , MB_OK);
+	
+	SwitchToThisWindow(sw->hwnd, TRUE);
+		UpdateWindow(sw->hwnd);
+	
+	SwitchToThisWindow(sw->hwnd, TRUE);
+	
+	 
+//First, we set the window as Topmost window in the Z order, but without the focus
+SetWindowPos(sw->hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+ 
+//Set the window as non-topmost window, to be sure it will not be always on top
+SetWindowPos(sw->hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+ 
 		terminate();
 		return 0;
 	case WM_DESTROY:
@@ -82,6 +104,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCm
 	HWND hwnd;
 	MSG msg;
 	WNDCLASS class;
+	setvbuf(stdout, 0, _IONBF, 0);
+	printf("IJIdaf\n");
+	fflush(stdout);
 
 	class.style		= 0;
 	class.lpfnWndProc	= mainWinProc;
@@ -99,10 +124,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCm
 		WS_POPUP | WS_BORDER, 0, 0, 10, 100, NULL, NULL, hInstance, NULL);
 	if (mainWin == NULL) return -1;
 	
+	switches = initSwitchList();
 	// TODO get positon and set
 	EnumWindows(EnumWindowsProc , (LPARAM)hInstance);
 	ShowWindow(mainWin, SW_SHOW);
-	//SetActiveWindow(mainWin);
 
 	while (GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
