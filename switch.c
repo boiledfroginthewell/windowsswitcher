@@ -28,7 +28,6 @@ int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label) {
 }
 
 SWITCH* findSwitch(SWITCH_LIST list, char label) {
-		printf("[%c]\n", label);fflush(stdout);
 	SWITCH* iter;
 	if (list == NULL || *list == NULL) return NULL;
 
