@@ -8,7 +8,7 @@ SWITCH_LIST initSwitchList() {
 	return (SWITCH_LIST) calloc(1, sizeof(SWITCH*));
 }
 
-int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label) {
+int newSwitch(SWITCH_LIST tgt, HWND hwnd, HWND labelHandle, char label) {
 	SWITCH* next;
 
 	if (tgt == NULL) return 1;
@@ -22,6 +22,7 @@ int newSwitch(SWITCH_LIST tgt, HWND hwnd, char label) {
 	*tgt = (SWITCH*)malloc(sizeof(SWITCH));
 	if (*tgt == NULL) return -1;
 	(*tgt)->hwnd = hwnd;
+	(*tgt)->labelHandle = labelHandle;
 	(*tgt)->label = label;
 	(*tgt)->next = next;
 	return 0;
