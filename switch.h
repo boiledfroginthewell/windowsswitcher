@@ -1,4 +1,5 @@
-
+#ifndef __H_SWITCH_
+#define __H_SWITCH_ 1
 
 typedef struct S_SWITCH{
 	HWND hwnd;
@@ -13,3 +14,5 @@ SWITCH_LIST initSwitchList();
 int newSwitch(SWITCH_LIST tgt, HWND hwnd, HWND labelHandle, char label);
 void freeSwitch(SWITCH_LIST start);
 SWITCH* findSwitch(SWITCH_LIST list, char label);
+
+#endif

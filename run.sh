@@ -1,3 +1,3 @@
 #!/bin/sh
 
-mgcc -mwindows windowsswitcher.c switch.c && ./a.exe 
+mgcc -mwindows windowsswitcher.c switch.c winapiutil.c && ./a.exe 
