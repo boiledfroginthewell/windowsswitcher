@@ -40,7 +40,6 @@ SWITCH* findSwitch(SWITCH_LIST list, char label) {
 }
 
 
-
 void freeSwitch(SWITCH_LIST list) {
 	SWITCH* remove;
 	SWITCH* next;

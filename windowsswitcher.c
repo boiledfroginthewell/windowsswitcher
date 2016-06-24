@@ -1,4 +1,5 @@
 #include<windows.h>
+#include<string.h>
 #include<stdio.h>
 #include<ctype.h>
 
@@ -7,6 +8,7 @@
 #define MAX_TITLE 512
 #define LABELS "gfdsatrewqvcx12345hjkl;yuiopnm,.7890"
 #define LABEL_OFFSET 3
+#define SWITCH_HEIGHT 25
 
 int nSwitches = 0;
 HWND mainWin;
@@ -15,12 +17,24 @@ SWITCH_LIST switches;
 void getWindowGeo(HWND hwnd, RECT *rect) {
 	WINDOWPLACEMENT place;
 	WINDOWPLACEMENT origin;
+	RECT currentRect;
+
 	GetWindowPlacement(hwnd, &place);
 	if (((place.flags & WPF_RESTORETOMAXIMIZED) != 0) || (place.showCmd == SW_MAXIMIZE)) {
 		rect->left = place.ptMaxPosition.x;
 		rect->top = place.ptMaxPosition.y;
 	} else {
 		*rect = place.rcNormalPosition;
+
+		/* Aero snap check */
+		if (place.showCmd == SW_SHOWNORMAL) {
+			GetWindowRect(hwnd, &currentRect);
+			if (rect->bottom - rect->top != currentRect.bottom - currentRect.top ||
+			    rect->right - rect->left != currentRect.right - currentRect.left) {
+				/* Window is aero-snapped */
+				*rect = currentRect;
+			}
+		}
 	}
 	/*
 	GetWindowPlacement(mainWin, &place);
@@ -34,13 +48,12 @@ void getWindowGeo(HWND hwnd, RECT *rect) {
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 	HWND labelHandler;
 	TCHAR windowText[512 + LABEL_OFFSET]; // TODO: LABEL
-	RECT rect;
 	TCHAR class[10];
+	RECT rect;
 	WINDOWPLACEMENT place;
-	MONITORINFO monitorinfo;
 	char label;
-
 	int i;
+
 	if (hwnd == NULL) return TRUE;
 	for (i = 0; i < sizeof(windowText); i++) {
 		windowText[i] = 0;
@@ -69,11 +82,13 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 	rect.left -= place.rcNormalPosition.left;
 	rect.top -= place.rcNormalPosition.top;
 	
+	// TODO: NO_ACTIVATE
 	// TODO: ex_edge or border
-	labelHandler = CreateWindowEx(WS_EX_TOPMOST | WS_EX_WINDOWEDGE | WS_EX_TOOLWINDOW, TEXT("STATIC"), TEXT(windowText), 
-		WS_POPUP | WS_BORDER, rect.left, rect.top, 400, 25, mainWin, NULL, (HINSTANCE)lParam, NULL);
-	ShowWindow(labelHandler, SW_SHOW);
+	labelHandler = CreateWindowEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, TEXT("Switch"), TEXT(windowText), 
+		WS_POPUP | WS_BORDER, rect.left, rect.top, 400, SWITCH_HEIGHT, mainWin, NULL, (HINSTANCE)lParam, NULL);
 	newSwitch(switches, hwnd, labelHandler, label);
+	SetWindowLongPtr(labelHandler, GWLP_USERDATA, (LONG_PTR) *switches);
+	ShowWindow(labelHandler, SW_SHOW);
 
 	return TRUE;
 }
@@ -81,8 +96,8 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 void activate(HWND hwnd) {
 	if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
 	SetWindowPos(hwnd,HWND_NOTOPMOST,0,0,0,0,SWP_NOMOVE | SWP_NOSIZE);
-	//SwitchToThisWindow(sw->hwnd, TRUE);
-	//SetForegroundWindow(sw->hwnd);
+	//SwitchToThisWindow(hwnd, TRUE);
+	//SetForegroundWindow(hwnd);
 	//BringWindowToTop(sw->hwnd);
 	//SetActiveWindow(sw->hwnd);
 }
@@ -92,14 +107,78 @@ void terminate() {
 	if (isFirst) {
 		isFirst = FALSE;
 		freeSwitch(switches);
+		switches = NULL;
 		PostQuitMessage(0);
+	}
+}
+
+HICON getWindowIcon(HWND hwnd) {
+	ULONG_PTR icon;
+	
+	icon = SendMessage(hwnd, WM_GETICON, ICON_SMALL2, 0);
+	if (icon != (ULONG_PTR) NULL) return (HICON) icon;
+	icon = SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
+	if (icon != (ULONG_PTR) NULL) return (HICON) icon;
+	icon = SendMessage(hwnd, WM_GETICON, ICON_BIG, 0);
+	if (icon != (ULONG_PTR) NULL) return (HICON) icon;
+	icon = GetClassLongPtr(hwnd, GCLP_HICON);
+	if (icon != (ULONG_PTR) NULL) return (HICON) icon;
+	icon = GetClassLongPtr(hwnd, GCLP_HICONSM);
+	if (icon !=(ULONG_PTR) NULL) return (HICON) icon;
+	return NULL;
+}
+
+/* Window Procedure for the main window. */
+LRESULT CALLBACK subWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lparam) {
+	SWITCH* sw;
+	HDC dc;
+	PAINTSTRUCT paint;
+	TCHAR text[255] ={0};
+	HICON icon;
+	SIZE size;
+	
+	switch(msgCode) {
+	case WM_CREATE:
+		dc = GetDC(hwnd);
+		GetWindowText(hwnd, text, 250);
+		GetTextExtentPoint(dc, text, strlen(text), &size);
+		SetWindowPos(hwnd, 0, 0, 0, 
+			size.cx + SWITCH_HEIGHT + 10, SWITCH_HEIGHT, SWP_NOMOVE | SWP_NOZORDER);
+		ReleaseDC(hwnd, dc);
+		return 0;
+	case WM_PAINT:
+		dc = BeginPaint(hwnd, &paint);
+		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		icon = getWindowIcon(sw->hwnd);
+		DrawIconEx(dc, 2, 1, icon, SWITCH_HEIGHT - 4, SWITCH_HEIGHT - 4, 0, (HBRUSH)GetStockObject(WHITE_BRUSH), DI_IMAGE);
+		GetWindowText(hwnd, text, 250);
+		TextOut(dc, SWITCH_HEIGHT + 5, 2, text, strlen(text));
+		EndPaint(hwnd, &paint);
+		return 0;
+	case WM_RBUTTONDOWN: // right click to close the assiated window
+		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		ShowWindow(sw->hwnd, SW_MINIMIZE);
+		terminate();
+		return 0;
+	case WM_MBUTTONDOWN: // wheel click to close the assiated window
+		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		SendMessage(sw->hwnd, WM_CLOSE, 0, 0);
+		terminate();
+		return 0;
+	case WM_LBUTTONDOWN: // left click to close the assiated window
+		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		activate(sw->hwnd);
+		terminate();
+		return 0;
+	default:
+		return DefWindowProc(hwnd, msgCode, wparam, lparam);
 	}
 }
 
 /* Window Procedure for the main window. */
 LRESULT CALLBACK mainWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lparam) {
 	SWITCH* sw;
-	PAINTSTRUCT ps;
+	TCHAR name[32] = {0};
 	switch(msgCode) {
 	case WM_CHAR:
 		if ((sw = findSwitch(switches, ((TCHAR) wparam))) == NULL) {
@@ -113,8 +192,11 @@ LRESULT CALLBACK mainWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lpar
 		terminate();
 		return 0;
 	case WM_KILLFOCUS:
-		terminate();
-		return 0;
+		GetClassName((HWND) wparam, name, 31);
+		if (lstrcmp(name, TEXT("Switch")) != 0) {
+			terminate();
+			return 0;
+		}
 	default:
 		return DefWindowProc(hwnd, msgCode, wparam, lparam);
 	}
@@ -124,12 +206,11 @@ void manageSwitches(SWITCH_LIST switches) {
 	SWITCH *sw;
 	RECT rect;
 	RECT origin;
-	int limitX = 200;
-	int limitY = 200;
+	int limitX = 50;
+	int limitY = 50;
 	BOOL initialY = TRUE;
 	long x, y;
 
-	// TODO: GetWindowPlacement (for maximized, iconic windows)
 	getWindowGeo(mainWin, &origin);
 	limitX += origin.left;
 	limitY += origin.top;
@@ -141,8 +222,7 @@ void manageSwitches(SWITCH_LIST switches) {
 		if (x < origin.left) x = origin.left;
 		if (y < origin.top) y = origin.top;
 		if (x < limitX && y < limitY) {
-		//if (y == 0){
-			//x = origin.left;
+			x = origin.left;
 			if (initialY) {
 				initialY = FALSE;
 				limitY = origin.top;
@@ -156,10 +236,10 @@ void manageSwitches(SWITCH_LIST switches) {
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCmdShow) {
-	int x, y;
 	HWND hwnd;
 	MSG msg;
 	WNDCLASS class;
+	WNDCLASS subWinClass;
 
 	class.style		= 0;
 	class.lpfnWndProc	= mainWinProc;
@@ -171,20 +251,35 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCm
 	class.lpszMenuName	= NULL;
 	class.lpszClassName	= TEXT("Switcher");
 
-	if (!RegisterClass(&class)) return -1;
+	subWinClass.style		= 0;
+	subWinClass.lpfnWndProc	= subWinProc;
+	subWinClass.cbClsExtra = 0;
+	subWinClass.cbWndExtra = sizeof(SWITCH*);
+	subWinClass.hInstance		= hInstance;
+	subWinClass.hIcon		= LoadIcon(NULL , IDI_APPLICATION);
+	subWinClass.hCursor		= LoadCursor(NULL , IDC_ARROW);
+	subWinClass.hbrBackground	= (HBRUSH)GetStockObject(WHITE_BRUSH);
+	subWinClass.lpszMenuName	= NULL;
+	subWinClass.lpszClassName	= TEXT("Switch");
 
-	mainWin = CreateWindowEx(WS_EX_TOOLWINDOW, TEXT("Switcher"), TEXT("\0"), 
+	if (!RegisterClass(&class)) return -1;
+	if (!RegisterClass(&subWinClass)) return -1;
+
+	mainWin = CreateWindowEx(WS_EX_TOOLWINDOW, TEXT("Switcher"), 0, 
 	//mainWin = CreateWindow(TEXT("Switcher"), TEXT("rchsch\0"), 
 		WS_POPUP | WS_BORDER, 0, 0, 0, 0, NULL, NULL, hInstance, NULL);
 	if (mainWin == NULL) return -1;
 	
 	switches = initSwitchList();
 	EnumWindows(EnumWindowsProc , (LPARAM)hInstance);
-	if (nSwitches <= 1) {
+	if (nSwitches == 0) {
 		terminate();
 		return 0;
-	}
-	if (nSwitches == 2) {
+	} else if (nSwitches == 1) {
+		activate((*switches)->hwnd);
+		terminate();
+		return 0;
+	} else if (nSwitches == 2) {
 		activate((*switches)->hwnd);
 		terminate();
 		return 0;
