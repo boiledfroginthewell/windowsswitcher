@@ -1,31 +1,147 @@
-#include<windows.h>
-#include<stdlib.h>
 #include<stdio.h>
+#include<stdlib.h>
+#include<ctype.h>
+#include<string.h>
+#include<windows.h>
+
 
 #include "switch.h"
+
+static void paintWindow(HWND hwnd); 
+
+static int nSwitches = 0;
+
+
+BOOL makeSubWinClass(HINSTANCE hInstance) {
+	WNDCLASS subWinClass;
+
+	subWinClass.style		= 0;
+	subWinClass.lpfnWndProc	= subWinProc;
+	subWinClass.cbClsExtra = 0;
+	subWinClass.cbWndExtra = sizeof(SWITCH*);
+	subWinClass.hInstance		= hInstance;
+	subWinClass.hIcon		= LoadIcon(NULL , IDI_APPLICATION);
+	subWinClass.hCursor		= LoadCursor(NULL , IDC_ARROW);
+	subWinClass.hbrBackground	= (HBRUSH)GetStockObject(WHITE_BRUSH);
+	subWinClass.lpszMenuName	= NULL;
+	subWinClass.lpszClassName	= SUB_WIN_CLASS_NAME;
+
+	return RegisterClass(&subWinClass);
+}
+
+
+/* Window Procedure for the switch windows. */
+LRESULT CALLBACK subWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lparam) {
+	SWITCH* sw;
+	
+	switch(msgCode) {
+	case WM_PAINT:
+		paintWindow(hwnd);
+		return 0;
+	case WM_RBUTTONDOWN: // right click to close the assiated window
+		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		ShowWindow(sw->hwnd, SW_MINIMIZE);
+		//activate(mainWin);
+		terminate();
+		return 0;
+	case WM_MBUTTONDOWN: // wheel click to close the assiated window
+		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		SendMessage(sw->hwnd, WM_CLOSE, 0, 0);
+		//terminate();
+		sw->label = '\0';
+		SendMessage(hwnd, WM_CLOSE, 0, 0);
+		activate(mainWin);
+		return 0;
+	case WM_LBUTTONDOWN: // left click to close the assiated window
+		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		activate(sw->hwnd);
+		terminate();
+		return 0;
+	default:
+		return DefWindowProc(hwnd, msgCode, wparam, lparam);
+	}
+}
+
+static void paintWindow(HWND hwnd) {
+	HDC dc;
+	PAINTSTRUCT paint;
+	HICON icon;
+	TCHAR text[MAX_SWITCH_TEXT];
+	SIZE size;
+	SWITCH* sw;
+
+	dc = BeginPaint(hwnd, &paint);
+	/* Write the text */
+	GetWindowText(hwnd, text, MAX_SWITCH_TEXT);
+	GetTextExtentPoint(dc, text, strlen(text), &size);
+	TextOut(dc, PADDING_L + size.cy + ICON_SPACING, PADDING_T, text, strlen(text));
+	/* Drow the icon */
+	sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	icon = (HICON) getWindowIcon(sw->hwnd);
+	DrawIconEx(dc, PADDING_L, PADDING_T, icon, 
+			size.cy, size.cy, 
+			0, (HBRUSH)GetStockObject(WHITE_BRUSH), DI_IMAGE);
+
+	EndPaint(hwnd, &paint);
+}
+
 
 SWITCH_LIST initSwitchList() {
 	return (SWITCH_LIST) calloc(1, sizeof(SWITCH*));
 }
 
-int newSwitch(SWITCH_LIST tgt, HWND hwnd, HWND labelHandle, char label) {
+int newSwitch(SWITCH_LIST tgt, HWND hwnd, HINSTANCE hInstance) {
 	SWITCH* next;
+	HWND labelHandle;
+	RECT rect;
+	WINDOWPLACEMENT place;
+	TCHAR text[MAX_SWITCH_TEXT];
+	HDC dc;
+	SIZE size;
 
 	if (tgt == NULL) return 1;
 	
-	if (*tgt == NULL) {
-		next = NULL;
-	} else {
-		next = *tgt;
+	if (nSwitches >= strlen(LABELS)) {
+		/* Too many windows to handle */
+		return 1;
 	}
 
+	/* Create a switch window */
+	labelHandle = CreateWindowEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, SUB_WIN_CLASS_NAME, text,
+		WS_POPUP | WS_BORDER, 0, 0, 10, 10, mainWin, NULL, hInstance, NULL);
+
+	/* Instantiate a SWITCH */
+	next = *tgt;
 	*tgt = (SWITCH*)malloc(sizeof(SWITCH));
 	if (*tgt == NULL) return -1;
 	(*tgt)->hwnd = hwnd;
+	(*tgt)->label = LABELS[nSwitches++];
 	(*tgt)->labelHandle = labelHandle;
-	(*tgt)->label = label;
 	(*tgt)->next = next;
+
+	SetWindowLongPtr(labelHandle, GWLP_USERDATA, (LONG_PTR) *tgt);
+
+	/* Set the text to be shown in the switch */
+	text[0] = toupper((*tgt)->label);
+	text[1] = ':';
+	text[2] = ' ';
+	GetWindowText(hwnd, text + LABEL_OFFSET, MAX_SWITCH_TEXT - LABEL_OFFSET);
+	SetWindowText(labelHandle, text);
+
+	/* Determine the size of the switch window */
+	dc = GetDC(labelHandle);
+	GetTextExtentPoint(dc, text, strlen(text), &size);
+	SetWindowPos(labelHandle, 0, 0, 0, 
+		PADDING_L + size.cy + ICON_SPACING + size.cx + PADDING_R,
+		PADDING_T + size.cy + PADDING_B,
+		SWP_NOMOVE | SWP_NOZORDER);
+	ReleaseDC(labelHandle, dc);
+
 	return 0;
+}
+
+int countSwitches() {
+	return nSwitches;
 }
 
 SWITCH* findSwitch(SWITCH_LIST list, char label) {
@@ -38,7 +154,6 @@ SWITCH* findSwitch(SWITCH_LIST list, char label) {
 	} while ((iter = iter->next) != NULL);
 	return NULL;
 }
-
 
 void freeSwitch(SWITCH_LIST list) {
 	SWITCH* remove;
