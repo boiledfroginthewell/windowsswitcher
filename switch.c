@@ -6,6 +6,8 @@
 
 
 #include "switch.h"
+#include "windowsswitcher.h"
+#include "winapiutil.h"
 
 static void paintWindow(HWND hwnd); 
 
@@ -41,7 +43,7 @@ LRESULT CALLBACK subWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lpara
 	case WM_RBUTTONDOWN: // right click to close the assiated window
 		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 		ShowWindow(sw->hwnd, SW_MINIMIZE);
-		//activate(mainWin);
+		//activate(GetParent(hwnd));
 		terminate();
 		return 0;
 	case WM_MBUTTONDOWN: // wheel click to close the assiated window
@@ -50,7 +52,7 @@ LRESULT CALLBACK subWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lpara
 		//terminate();
 		sw->label = '\0';
 		SendMessage(hwnd, WM_CLOSE, 0, 0);
-		activate(mainWin);
+		activate(GetParent(hwnd));
 		return 0;
 	case WM_LBUTTONDOWN: // left click to close the assiated window
 		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -75,22 +77,61 @@ static void paintWindow(HWND hwnd) {
 	GetWindowText(hwnd, text, MAX_SWITCH_TEXT);
 	GetTextExtentPoint(dc, text, strlen(text), &size);
 	TextOut(dc, PADDING_L + size.cy + ICON_SPACING, PADDING_T, text, strlen(text));
-	/* Drow the icon */
+	/* Draw the icon */
 	sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	icon = (HICON) getWindowIcon(sw->hwnd);
 	DrawIconEx(dc, PADDING_L, PADDING_T, icon, 
 			size.cy, size.cy, 
-			0, (HBRUSH)GetStockObject(WHITE_BRUSH), DI_IMAGE);
+			0, (HBRUSH)GetStockObject(WHITE_BRUSH), DI_NORMAL);
 
 	EndPaint(hwnd, &paint);
 }
+
+
+/* Arranges the position of switch windows */
+void manageSwitches(SWITCH_LIST switches) {
+	SWITCH *sw;
+	RECT location;
+	RECT switchSize;
+	RECT origin;
+	int snapX = SNAP_X;
+	int snapY = SNAP_Y;
+	BOOL initialY = TRUE;
+	long x, y;
+
+
+	// get left top coordinates without the taskbar
+	getWindowGeo(NULL, &origin);
+	sw = *switches;
+	do {
+		// location of associated window
+		getWindowGeo(sw->hwnd, &location);
+		x = location.left;
+		y = location.top;
+		// snap to left top if the window is near there
+		if ((x < origin.left + snapX) && (y < snapY + snapY)) {
+			x = origin.left;
+			if (initialY) {
+				initialY = FALSE;
+				snapY = origin.top;
+			}
+			y = snapY;
+			GetWindowRect(sw->labelHandle, &switchSize);
+			snapY += switchSize.bottom - switchSize.top - 1;
+		}
+		SetWindowPos(sw->labelHandle, HWND_TOPMOST, x, y, 0, 0, 
+			SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
+		ShowWindow(sw->labelHandle, SW_SHOW);
+	} while ((sw = sw->next) != NULL);
+}
+
 
 
 SWITCH_LIST initSwitchList() {
 	return (SWITCH_LIST) calloc(1, sizeof(SWITCH*));
 }
 
-int newSwitch(SWITCH_LIST tgt, HWND hwnd, HINSTANCE hInstance) {
+int newSwitch(SWITCH_LIST tgt, HWND hwnd, HWND parent, HINSTANCE hInstance) {
 	SWITCH* next;
 	HWND labelHandle;
 	RECT rect;
@@ -108,7 +149,7 @@ int newSwitch(SWITCH_LIST tgt, HWND hwnd, HINSTANCE hInstance) {
 
 	/* Create a switch window */
 	labelHandle = CreateWindowEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, SUB_WIN_CLASS_NAME, text,
-		WS_POPUP | WS_BORDER, 0, 0, 10, 10, mainWin, NULL, hInstance, NULL);
+		WS_POPUP | WS_BORDER, 0, 0, 10, 10, parent, NULL, hInstance, NULL);
 
 	/* Instantiate a SWITCH */
 	next = *tgt;

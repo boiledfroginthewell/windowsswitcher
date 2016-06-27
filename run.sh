@@ -1,8 +1,8 @@
 #!/bin/sh
 
-if type gcc; then
-	cc=gcc
-else
+if type mgcc > /dev/null; then
 	cc=mgcc
+else
+	cc=gcc
 fi
 $cc -mwindows windowsswitcher.c switch.c winapiutil.c && ./a.exe 

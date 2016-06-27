@@ -7,6 +7,10 @@
 #define LABEL_OFFSET 3
 #define LABELS "gfdsatrewqvcx12345hjkl;yuiopnm,.7890"
 
+#define SNAP 10
+#define SNAP_X SNAP
+#define SNAP_Y SNAP
+
 /* Padding for a switch window */
 #define PADDING 3
 #define PADDING_L PADDING
@@ -15,9 +19,6 @@
 #define PADDING_B PADDING
 /* Space between the icon and texts */
 #define ICON_SPACING 10
-
-extern HWND mainWin;
-
 
 typedef struct S_SWITCH{
 	HWND hwnd;
@@ -29,9 +30,10 @@ typedef SWITCH **SWITCH_LIST;
 
 BOOL makeSubWinClass(HINSTANCE); 
 LRESULT CALLBACK subWinProc(HWND, UINT, WPARAM, LPARAM);
+void manageSwitches(SWITCH_LIST);
 
 SWITCH_LIST initSwitchList(void);
-int newSwitch(SWITCH_LIST, HWND, HINSTANCE);
+int newSwitch(SWITCH_LIST, HWND, HWND, HINSTANCE);
 void freeSwitch(SWITCH_LIST);
 int countSwitches(); 
 SWITCH* findSwitch(SWITCH_LIST, char);
