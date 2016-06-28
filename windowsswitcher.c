@@ -4,13 +4,9 @@
 #include "switch.h"
 #include "winapiutil.h"
 
-#define SNAP 100
-#define SNAP_X SNAP
-#define SNAP_Y SNAP
 
 LRESULT CALLBACK mainWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lparam);
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam); 
-void manageSwitches(SWITCH_LIST switches); 
 void terminate(void); 
 
 HWND mainWin;
@@ -58,9 +54,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCm
 		terminate();
 		return 0;
 	} else if (nSwitches == 2) {
-		activate((*switches)->hwnd);
-		terminate();
-		return 0;
+		if (!IsIconic((*switches)->hwnd) || !IsIconic((*switches)->next->hwnd)) {
+			activate((*switches)->hwnd);
+			terminate();
+			return 0;
+		}
 	}
 
 	manageSwitches(switches);
@@ -76,46 +74,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCm
 
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 	if (!isInTaskbar(hwnd)) return TRUE;
-	newSwitch(switches, hwnd, (HINSTANCE) lParam);
+	newSwitch(switches, hwnd, mainWin, (HINSTANCE) lParam);
 	return TRUE;
-}
-
-
-/* Arranges the position of switch windows */
-void manageSwitches(SWITCH_LIST switches) {
-	SWITCH *sw;
-	RECT location;
-	RECT switchSize;
-	RECT origin;
-	int snapX = SNAP_X;
-	int snapY = SNAP_Y;
-	BOOL initialY = TRUE;
-	long x, y;
-
-
-	// get left top coordinates without the taskbar
-	getWindowGeo(NULL, &origin);
-	sw = *switches;
-	do {
-		// location of associated window
-		getWindowGeo(sw->hwnd, &location);
-		x = location.left;
-		y = location.top;
-		// snap to left top if the window is near there
-		if ((x < origin.left + snapX) && (y < snapY + snapY)) {
-			x = origin.left;
-			if (initialY) {
-				initialY = FALSE;
-				snapY = origin.top;
-			}
-			y = snapY;
-			GetWindowRect(sw->labelHandle, &switchSize);
-			snapY += switchSize.bottom - switchSize.top - 1;
-		}
-		SetWindowPos(sw->labelHandle, HWND_TOPMOST, x, y, 0, 0, 
-			SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
-		ShowWindow(sw->labelHandle, SW_SHOW);
-	} while ((sw = sw->next) != NULL);
 }
 
 
