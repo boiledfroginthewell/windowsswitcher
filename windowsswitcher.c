@@ -54,9 +54,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE dummy, PSTR lpCmdLine, int nCm
 		terminate();
 		return 0;
 	} else if (nSwitches == 2) {
-		activate((*switches)->hwnd);
-		terminate();
-		return 0;
+		if (!IsIconic((*switches)->hwnd) || !IsIconic((*switches)->next->hwnd)) {
+			activate((*switches)->hwnd);
+			terminate();
+			return 0;
+		}
 	}
 
 	manageSwitches(switches);

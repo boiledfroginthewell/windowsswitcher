@@ -1,0 +1,4 @@
+font
+overlapping of switch windows
+Bug: minimized aero-snap
+Bug: WM_?BUTTONDOWN is not sent whne the window border is clicked.
