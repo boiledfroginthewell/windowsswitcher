@@ -40,7 +40,7 @@ LRESULT CALLBACK subWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lpara
 	case WM_PAINT:
 		paintWindow(hwnd);
 		return 0;
-	case WM_RBUTTONDOWN: // right click to close the assiated window
+	case WM_RBUTTONUP: // right click to close the assiated window
 		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 		ShowWindow(sw->hwnd, SW_MINIMIZE);
 		//activate(GetParent(hwnd));
@@ -71,18 +71,29 @@ static void paintWindow(HWND hwnd) {
 	TCHAR text[MAX_SWITCH_TEXT];
 	SIZE size;
 	SWITCH* sw;
+	HBRUSH bgBrush;
+	COLORREF color;
 
+	sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	dc = BeginPaint(hwnd, &paint);
+	if (IsIconic(sw->hwnd)) {
+		color = RGB(0xd0, 0xd0, 0xd0);
+	} else {
+		color = RGB(0xff, 0xff, 0xff);
+	}
+	bgBrush = CreateSolidBrush(color);
+	SetBkColor(dc, color);
+	SelectObject(dc, bgBrush);
+	Rectangle(dc, -100, -100, 10000, 10000);
 	/* Write the text */
 	GetWindowText(hwnd, text, MAX_SWITCH_TEXT);
 	GetTextExtentPoint(dc, text, strlen(text), &size);
 	TextOut(dc, PADDING_L + size.cy + ICON_SPACING, PADDING_T, text, strlen(text));
 	/* Draw the icon */
-	sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	icon = (HICON) getWindowIcon(sw->hwnd);
 	DrawIconEx(dc, PADDING_L, PADDING_T, icon, 
 			size.cy, size.cy, 
-			0, (HBRUSH)GetStockObject(WHITE_BRUSH), DI_NORMAL);
+			0, NULL, DI_NORMAL);
 
 	EndPaint(hwnd, &paint);
 }
@@ -108,6 +119,8 @@ void manageSwitches(SWITCH_LIST switches) {
 		getWindowGeo(sw->hwnd, &location);
 		x = location.left;
 		y = location.top;
+		if (x < origin.left) x = origin.left;
+		if (y < origin.top) y = origin.top;
 		// snap to left top if the window is near there
 		if ((x < origin.left + snapX) && (y < snapY + snapY)) {
 			x = origin.left;
