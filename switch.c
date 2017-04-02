@@ -4,12 +4,13 @@
 #include<string.h>
 #include<windows.h>
 
-
 #include "switch.h"
 #include "windowsswitcher.h"
 #include "winapiutil.h"
 
 static void paintWindow(HWND hwnd); 
+static BOOL isOverlap(int, int, int, int, RECT*); 
+static void shiftWindow(SWITCH*, SWITCH_LIST); 
 
 static int nSwitches = 0;
 
@@ -40,7 +41,7 @@ LRESULT CALLBACK subWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lpara
 	case WM_PAINT:
 		paintWindow(hwnd);
 		return 0;
-	case WM_RBUTTONUP: // right click to close the assiated window
+	case WM_RBUTTONUP: // right click to minimize the assiated window
 		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 		ShowWindow(sw->hwnd, SW_MINIMIZE);
 		//activate(GetParent(hwnd));
@@ -54,7 +55,7 @@ LRESULT CALLBACK subWinProc(HWND hwnd, UINT msgCode, WPARAM wparam, LPARAM lpara
 		SendMessage(hwnd, WM_CLOSE, 0, 0);
 		activate(GetParent(hwnd));
 		return 0;
-	case WM_LBUTTONDOWN: // left click to close the assiated window
+	case WM_LBUTTONDOWN: // left click to activate the assiated window
 		sw = (SWITCH*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 		activate(sw->hwnd);
 		terminate();
@@ -98,42 +99,62 @@ static void paintWindow(HWND hwnd) {
 	EndPaint(hwnd, &paint);
 }
 
+BOOL isOverlap(int x, int y, int width, int height, RECT* rect2) {
+	return
+		// x 
+		abs(2*x + width - (rect2->right + rect2->left)) <
+		abs(width + (rect2->right - rect2->left)) 
+		&&
+		// y
+		abs(2*y + height - (rect2->bottom + rect2->top)) <
+		abs(height + (rect2->bottom - rect2->top));
+}
+
+// move window so that it wont overlap other windows
+void shiftWindow(SWITCH *target, SWITCH_LIST list) {
+	SWITCH *sw;
+	RECT location;
+	RECT switchRect;
+	RECT targetLocation;
+	int x, y, width, height;
+
+	// get the position and width of the switch window to be moved
+	getWindowGeo(target->hwnd, &targetLocation);
+	GetWindowRect(target->labelHandle, &switchRect);
+	x = targetLocation.left;
+	y = targetLocation.top;
+	width = switchRect.right - switchRect.left;
+	height = switchRect.bottom - switchRect.top;
+	if (x < 0) x = 0;
+	if (y < 0) y = 0;
+
+	// determine the location where the switch doesnt overlap.
+	sw = *list;
+	while (sw != NULL && sw != target) {
+		getWindowGeo(sw->labelHandle, &location);
+		// switches are moved to either right or bottom
+		if (isOverlap(x, y, width, height, &location)) {
+			if (location.right - x <= (location.bottom - y) * Y_MOVE_WEIGHT) {
+				x = location.right + X_MARGIN;
+			} else {
+				y = location.bottom + Y_MARGIN;
+			}
+		}
+		sw = sw->next;
+	}
+
+	SetWindowPos(target->labelHandle, HWND_TOPMOST, x, y, 0, 0, 
+		SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
+} 
+
 
 /* Arranges the position of switch windows */
 void manageSwitches(SWITCH_LIST switches) {
 	SWITCH *sw;
-	RECT location;
-	RECT switchSize;
-	RECT origin;
-	int snapX = SNAP_X;
-	int snapY = SNAP_Y;
-	BOOL initialY = TRUE;
-	long x, y;
 
-
-	// get left top coordinates without the taskbar
-	getWindowGeo(NULL, &origin);
 	sw = *switches;
 	do {
-		// location of associated window
-		getWindowGeo(sw->hwnd, &location);
-		x = location.left;
-		y = location.top;
-		if (x < origin.left) x = origin.left;
-		if (y < origin.top) y = origin.top;
-		// snap to left top if the window is near there
-		if ((x < origin.left + snapX) && (y < snapY + snapY)) {
-			x = origin.left;
-			if (initialY) {
-				initialY = FALSE;
-				snapY = origin.top;
-			}
-			y = snapY;
-			GetWindowRect(sw->labelHandle, &switchSize);
-			snapY += switchSize.bottom - switchSize.top - 1;
-		}
-		SetWindowPos(sw->labelHandle, HWND_TOPMOST, x, y, 0, 0, 
-			SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
+		shiftWindow(sw, switches);
 		ShowWindow(sw->labelHandle, SW_SHOW);
 	} while ((sw = sw->next) != NULL);
 }

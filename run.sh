@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if type mgcc > /dev/null; then
+if type mgcc > /dev/null 2>&1; then
 	cc=mgcc
 else
 	cc=gcc

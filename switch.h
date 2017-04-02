@@ -5,11 +5,11 @@
 
 #define MAX_SWITCH_TEXT 256
 #define LABEL_OFFSET 3
-#define LABELS "gfdsatrewqvcx12345hjkl;yuiopnm,.7890"
+#define LABELS "iueoap.,:jq234dhtnsgcrmw89"
 
-#define SNAP 10
-#define SNAP_X SNAP
-#define SNAP_Y SNAP
+#define Y_MOVE_WEIGHT (4.0 / 3.0)
+#define X_MARGIN 4
+#define Y_MARGIN 0
 
 /* Padding for a switch window */
 #define PADDING 3
